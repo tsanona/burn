@@ -41,3 +41,4 @@ pub mod store;
 mod confusion_matrix;
 #[cfg(feature = "metrics")]
 mod precision;
+mod recall;
