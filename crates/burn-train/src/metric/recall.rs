@@ -14,6 +14,7 @@ pub struct RecallMetric<B: Backend> {
     threshold: f64,
     class_average: ClassAverageType,
 }
+
 #[allow(dead_code)]
 impl<B: Backend> RecallMetric<B> {
     /// Sets the threshold.
