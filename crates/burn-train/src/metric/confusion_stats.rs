@@ -129,6 +129,14 @@ impl<B: Backend> ConfusionStats<B> {
             class_average,
         )
     }
+
+    pub fn recall(self) -> f64 {
+        let class_average = self.class_average;
+        Self::average(
+            self.clone().true_positive() / self.positive(),
+            class_average,
+        )
+    }
 }
 
 #[cfg(test)]

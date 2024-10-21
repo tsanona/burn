@@ -42,3 +42,6 @@ pub(crate) mod classification;
 mod confusion_stats;
 #[cfg(feature = "metrics")]
 mod precision;
+
+#[cfg(feature = "metrics")]
+mod recall;
