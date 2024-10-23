@@ -45,3 +45,6 @@ mod precision;
 
 #[cfg(feature = "metrics")]
 mod recall;
+
+#[cfg(feature = "metrics")]
+mod accuracy;

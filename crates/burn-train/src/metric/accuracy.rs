@@ -1,0 +1,125 @@
+use super::{
+    classification::{ClassAverageType, ClassificationInput},
+    confusion_stats::ConfusionStats,
+    state::{FormatOptions, NumericMetricState},
+    Metric, MetricEntry, MetricMetadata, Numeric,
+};
+use burn_core::tensor::backend::Backend;
+use core::marker::PhantomData;
+
+/// The accuracy metric.
+pub struct AccuracyMetric<B: Backend> {
+    state: NumericMetricState,
+    _b: PhantomData<B>,
+    threshold: Option<f64>,
+    top_k: Option<usize>,
+    class_average: ClassAverageType,
+}
+
+#[allow(dead_code)]
+impl<B: Backend> AccuracyMetric<B> {
+    /// Sets the threshold.
+    pub fn with_threshold(mut self, threshold: f64) -> Self {
+        self.threshold = Some(threshold);
+        self.top_k = None;
+        self
+    }
+
+    /// Sets the class average.
+    pub fn with_class_average(mut self, class_average: ClassAverageType) -> Self {
+        self.class_average = class_average;
+        self
+    }
+
+    /// Sets the top k.
+    pub fn with_top_k(mut self, top_k: usize) -> Self {
+        self.top_k = Some(top_k);
+        self.threshold = None;
+        self
+    }
+}
+
+impl<B: Backend> Default for AccuracyMetric<B> {
+    /// Creates a new metric instance with default values.
+    fn default() -> Self {
+        Self {
+            state: NumericMetricState::default(),
+            _b: PhantomData,
+            threshold: Some(0.5),
+            top_k: None,
+            class_average: ClassAverageType::Micro,
+        }
+    }
+}
+
+impl<B: Backend> Metric for AccuracyMetric<B> {
+    const NAME: &'static str = "Accuracy";
+    type Input = ClassificationInput<B>;
+    fn update(
+        &mut self,
+        input: &ClassificationInput<B>,
+        _metadata: &MetricMetadata,
+    ) -> MetricEntry {
+        let (predictions, targets) = input.clone().into();
+        let [sample_size, _] = input.predictions.dims();
+        let metric =
+            ConfusionStats::new(predictions, targets, self.threshold, self.top_k, self.class_average).accuracy();
+
+
+        self.state.update(
+            100.0 * metric,
+            sample_size,
+            FormatOptions::new(Self::NAME).unit("%").precision(2),
+        )
+    }
+
+    fn clear(&mut self) {
+        self.state.reset()
+    }
+}
+
+impl<B: Backend> Numeric for AccuracyMetric<B> {
+    fn value(&self) -> f64 {
+        self.state.value()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        ClassAverageType::{self, *},
+        Metric, MetricMetadata, Numeric, AccuracyMetric,
+    };
+    use crate::tests::{
+        dummy_classification_input,
+        ClassificationType::{self, *},
+        THRESHOLD,
+    };
+    use crate::TestBackend;
+    use burn_core::tensor::TensorData;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case::binary_micro(Binary, Micro, 3.0/5.0)]
+    #[case::binary_macro(Binary, Macro, 3.0/5.0)]
+    #[case::multiclass_micro(Multiclass, Micro, 11.0/15.0)]
+    #[case::multiclass_macro(Multiclass, Macro, (3.0/5.0 + 4.0/5.0 + 4.0/5.0)/3.0)]
+    #[case::multilabel_micro(Multilabel, Micro, 8.0/15.0)]
+    #[case::multilabel_macro(Multilabel, Macro, (2.0/5.0 + 4.0/5.0 + 2.0/5.0)/3.0)]
+    fn test_recall(
+        #[case] class_type: ClassificationType,
+        #[case] avg_type: ClassAverageType,
+        #[case] expected: f64,
+    ) {
+        let input = dummy_classification_input(&class_type);
+        let mut metric = AccuracyMetric::<TestBackend>::default();
+        metric = match class_type {
+            Multiclass => metric.with_top_k(1),
+            _ => metric.with_threshold(THRESHOLD),
+        };
+        metric = metric.with_class_average(avg_type);
+        let _entry = metric.update(&input, &MetricMetadata::fake());
+        TensorData::from([metric.value()])
+            .assert_approx_eq(&TensorData::from([expected * 100.0]), 3)
+    }
+}

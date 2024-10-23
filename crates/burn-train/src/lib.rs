@@ -49,7 +49,16 @@ pub(crate) mod tests {
     }
 
     /// Sample x Class shaped matrix for use in
-    /// classification metrics testing
+    /// classification metrics testing.
+    /// - Binary:
+    ///     - real targets -> `[[0], [1], [0], [0], [1]]`
+    ///     - pred targets -> `[[0], [0], [1], [0], [1]]`
+    /// - Multiclass:
+    ///     - real targets -> `[[0, 1, 0], [1, 0, 0], [0, 0, 1], [0, 0, 1], [1, 0, 0]]`
+    ///     - pred targets -> `[[0, 1, 0], [0, 1, 0], [1, 0, 0], [0, 0, 1], [1, 0, 0]]`
+    /// - Multilabel:
+    ///     - real targets -> `[[1, 1, 0], [1, 0, 1], [1, 1, 1], [0, 0, 1], [1, 0, 0]]`
+    ///     - pred targets -> `[[0, 1, 1], [0, 1, 0], [1, 1, 0], [1, 0, 1], [1, 0, 0]]`
     pub fn dummy_classification_input(
         classification_type: &ClassificationType,
     ) -> ClassificationInput<TestBackend> {
