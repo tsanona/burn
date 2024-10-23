@@ -11,7 +11,8 @@ use core::marker::PhantomData;
 pub struct RecallMetric<B: Backend> {
     state: NumericMetricState,
     _b: PhantomData<B>,
-    threshold: f64,
+    threshold: Option<f64>,
+    top_k: Option<usize>,
     class_average: ClassAverageType,
 }
 
@@ -19,13 +20,21 @@ pub struct RecallMetric<B: Backend> {
 impl<B: Backend> RecallMetric<B> {
     /// Sets the threshold.
     pub fn with_threshold(mut self, threshold: f64) -> Self {
-        self.threshold = threshold;
+        self.threshold = Some(threshold);
+        self.top_k = None;
         self
     }
 
     /// Sets the class average.
     pub fn with_class_average(mut self, class_average: ClassAverageType) -> Self {
         self.class_average = class_average;
+        self
+    }
+
+    /// Sets the top k.
+    pub fn with_top_k(mut self, top_k: usize) -> Self {
+        self.top_k = Some(top_k);
+        self.threshold = None;
         self
     }
 }
@@ -36,7 +45,8 @@ impl<B: Backend> Default for RecallMetric<B> {
         Self {
             state: NumericMetricState::default(),
             _b: PhantomData,
-            threshold: 0.5,
+            threshold: Some(0.5),
+            top_k: None,
             class_average: ClassAverageType::Micro,
         }
     }
@@ -53,7 +63,7 @@ impl<B: Backend> Metric for RecallMetric<B> {
         let (predictions, targets) = input.clone().into();
         let [sample_size, _] = input.predictions.dims();
         let metric =
-            ConfusionStats::new(predictions, targets, self.threshold, self.class_average).recall();
+            ConfusionStats::new(predictions, targets, self.threshold, self.top_k, self.class_average).recall();
 
         self.state.update(
             100.0 * metric,
@@ -101,9 +111,12 @@ mod tests {
         #[case] expected: f64,
     ) {
         let input = dummy_classification_input(&class_type);
-        let mut metric = RecallMetric::<TestBackend>::default()
-            .with_threshold(THRESHOLD)
-            .with_class_average(avg_type);
+        let mut metric = RecallMetric::<TestBackend>::default();
+        metric = match class_type {
+            Multiclass => metric.with_top_k(1),
+            _ => metric.with_threshold(THRESHOLD),
+        };
+        metric = metric.with_class_average(avg_type);
         let _entry = metric.update(&input, &MetricMetadata::fake());
         TensorData::from([metric.value()])
             .assert_approx_eq(&TensorData::from([expected * 100.0]), 3)

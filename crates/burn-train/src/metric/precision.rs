@@ -12,8 +12,8 @@ pub struct PrecisionMetric<B: Backend> {
     state: NumericMetricState,
     _b: PhantomData<B>,
     threshold: Option<f64>,
-    class_average: ClassAverageType,
     top_k: Option<usize>,
+    class_average: ClassAverageType,
 }
 
 #[allow(dead_code)]
@@ -46,8 +46,8 @@ impl<B: Backend> Default for PrecisionMetric<B> {
             state: NumericMetricState::default(),
             _b: PhantomData,
             threshold: Some(0.5),
-            class_average: ClassAverageType::Micro,
             top_k: None,
+            class_average: ClassAverageType::Micro,
         }
     }
 }
